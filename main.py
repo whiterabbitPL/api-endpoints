@@ -11,3 +11,6 @@ def register_routes(app):
             </div>
         """
         return Response(html, mimetype='text/html')
+
+def format_html():
+    pass

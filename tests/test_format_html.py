@@ -1,5 +1,10 @@
+import sys
 import pytest
-from main import format_html   # <-- zmień na właściwą ścieżkę
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from main import format_html
+
 
 
 def test_format_html_basic():
