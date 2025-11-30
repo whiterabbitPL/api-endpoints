@@ -16,5 +16,15 @@ def register_routes(app):
     def void_endpoint():
         return Response("", status=200, mimetype='text/plain')
 
-def format_html():
-    pass
+def format_html(data, configuration, id, headers, pictures):
+    result = [f'<div class="api-form-{id}">']
+    for item in data:
+        for key, value in item.items():
+            if key in headers and "headers" in configuration:
+                result.append(configuration["headers"].format(key=key, value=value))
+            elif key in pictures and "pictures" in configuration:
+                result.append(configuration["pictures"].format(key=key, value=value))
+            elif "default" in configuration:
+                result.append(configuration["default"].format(key=key, value=value))
+    result.append('</div>')
+    return '\n'.join(result)
