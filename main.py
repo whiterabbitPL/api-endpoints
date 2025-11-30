@@ -11,6 +11,10 @@ def register_routes(app):
             </div>
         """
         return Response(html, mimetype='text/html')
+    
+    @app.route('/api/void', methods=['GET', 'POST'])
+    def void_endpoint():
+        return Response("", status=200, mimetype='text/plain')
 
 def format_html():
     pass
