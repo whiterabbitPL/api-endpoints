@@ -1,7 +1,7 @@
 import pytest
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 from flask import Flask
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -15,12 +15,12 @@ def client():
         yield client
 
 def test_register_endpoint_mocked_redis(client):
-    user_id = "test_user_123"
-
+  user_id = "test_user_123"
+  with patch("main.uuid.uuid4", return_value="123"):
     # Patchujemy cache (Redis client) w module main
-    with patch("main.cache") as mock_cache:
-        mock_cache.set = MagicMock()
-        mock_cache.ttl = MagicMock(return_value=3600)
+    with patch("main.redis_client") as mock_cache:
+        mock_cache.setex = MagicMock()
+        #mock_cache.ttl = MagicMock(return_value=3600)
         
         def get_side_effect(key):
             if key == user_id:
@@ -35,21 +35,17 @@ def test_register_endpoint_mocked_redis(client):
         assert response.status_code == 200
 
         data = response.get_json()
-        assert "guid" in data
-        returned_guid = data["guid"]
-        assert returned_guid == "mock-guid-123"
+        assert "uuid" in data
+        returned_guid = data["uuid"]
+        assert returned_guid == "123"
 
         # Sprawdzenie wywołań set
         expected_calls = [
-            ((user_id, returned_guid, 3600),),
-            ((f"{returned_guid}-search-context", returned_guid, 3600),),
-            ((f"{returned_guid}-account-details", returned_guid, 3600),),
+            call(user_id, 3600, returned_guid),
+            call(f"{returned_guid}-search-context", 3600, '{}'),
+            call(f"{returned_guid}-account-details", 3600, '{}'),
         ]
-        actual_calls = mock_cache.set.call_args_list
+        actual_calls = mock_cache.setex.call_args_list
         for expected_call in expected_calls:
             assert expected_call in actual_calls
 
-        # Sprawdzenie TTL
-        assert mock_cache.ttl(user_id) == 3600
-        assert mock_cache.ttl(f"{returned_guid}-search-context") == 3600
-        assert mock_cache.ttl(f"{returned_guid}-account-details") == 3600
