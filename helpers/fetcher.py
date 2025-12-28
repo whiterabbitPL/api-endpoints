@@ -82,7 +82,7 @@ class FetcherInterface:
 
     def _download(self, url, name):
         ext = url[-4:]
-        target_path = os.path.join(self.path, f"{name}.{ext}")
+        target_path = os.path.join(self.path, f"{name}{ext}")
         urllib.request.urlretrieve(url, target_path)
         return target_path
 

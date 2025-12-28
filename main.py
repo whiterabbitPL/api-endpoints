@@ -75,6 +75,34 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/products', methods=['POST'])
+    def products():
+        try:
+            data = request.get_json()
+            if not data or 'user_id' not in data or 'uuid' not in data:
+                return jsonify({'error': 'user_id and uuid are required'}), 400
+
+            user_id = data['user_id']
+            session_uuid = data['uuid']
+
+            result = [
+                {
+                    "image": "http://lab.shirousagi.pl/wp-admin/upload.php?item=6",
+                    "price": "99.00",
+                    "stock": "Dostępny"
+                },
+                {
+                    "image": "http://lab.shirousagi.pl/wp-admin/upload.php?item=6",
+                    "price": "149.00",
+                    "stock": "Brak"
+                }
+            ]
+
+            return jsonify(result), 200
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/user-info', methods=['POST'])
     def user_info():
         try:
