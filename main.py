@@ -87,12 +87,12 @@ def register_routes(app):
 
             result = [
                 {
-                    "image": "http://lab.shirousagi.pl/wp-admin/upload.php?item=6",
+                    "image": "http://lab.shirousagi.pl/wp-content/uploads/2025/12/imagesDzwonek.jpg",
                     "price": "99.00",
                     "stock": "Dostępny"
                 },
                 {
-                    "image": "http://lab.shirousagi.pl/wp-admin/upload.php?item=6",
+                    "image": "http://lab.shirousagi.pl/wp-content/uploads/2025/12/imagesDzwonek.jpg",
                     "price": "149.00",
                     "stock": "Brak"
                 }
