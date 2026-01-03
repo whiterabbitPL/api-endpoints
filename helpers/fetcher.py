@@ -3,8 +3,10 @@ import requests
 import urllib.request
 from urllib.parse import urlparse
 from datetime import datetime
+import time
 import re
 import mysql.connector
+import base64
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -350,3 +352,110 @@ def with_mysql_persistence(place: str):
         cls.build_persistance_manager = build_persistance_manager
         return cls
     return decorator
+
+class AllegroClient:
+    AUTH_URL = "https://allegro.pl/auth/oauth/token"
+    API_URL = "https://api.allegro.pl"
+
+    def __init__(self, client_id: str, client_secret: str):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self._token = None
+        self._token_expiry = 0
+
+    def _get_token(self) -> str:
+        auth = base64.b64encode(
+            f"{self.client_id}:{self.client_secret}".encode()
+        ).decode()
+
+        response = requests.post(
+            self.AUTH_URL,
+            headers={
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            data={"grant_type": "client_credentials"},
+            timeout=10
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        self._token = data["access_token"]
+        self._token_expiry = time.time() + data.get("expires_in", 3600) - 30
+        return self._token
+
+    def _get_valid_token(self) -> str:
+        if not self._token or time.time() >= self._token_expiry:
+            return self._get_token()
+        return self._token
+
+    def get(self, path: str, params: dict | None = None) -> dict:
+        token = self._get_valid_token()
+
+        response = requests.get(
+            f"{self.API_URL}{path}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.allegro.public.v1+json"
+            },
+            params=params,
+            timeout=10
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+class AllegroFetcher(FetcherInterface):
+    def __init__(self, allegro_client: AllegroClient, url: str, name: str = ""):
+        self.client = allegro_client
+        super().__init__(url=url, name=name)
+
+    # ========================
+    # Walidacja URL
+    # ========================
+    def url_validator(self, url: str) -> bool:
+        return url.startswith("https://allegro.pl/oferta/")
+
+    # ========================
+    # ID oferty z URL
+    # ========================
+    def extract_product_id(self, url: str) -> str:
+        """
+        https://allegro.pl/oferta/...-17115537557?... -> 17115537557
+        """
+        base = url.split("?", 1)[0]
+        offer_id = base.rsplit("-", 1)[-1]
+
+        if not offer_id.isdigit():
+            raise ValueError("Nie udało się wyciągnąć ID oferty Allegro")
+
+        return offer_id
+
+    # ========================
+    # Nadpisujemy pobieranie danych
+    # ========================
+    def get_page(self, url):
+        """
+        Nie pobieramy HTML – pobieramy JSON z Allegro API
+        """
+        offer_id = self.extract_product_id(url)
+        return self.client.get(f"/offers/{offer_id}")
+
+    # ========================
+    # Mapowanie JSON → pola Fetchera
+    # ========================
+    def get_image_url(self, data: dict) -> str:
+        images = data.get("images", [])
+        return images[0]["url"] if images else ""
+
+    def get_description(self, data: dict) -> str:
+        return data.get("description", {}).get("plainText", "")
+
+    def get_price(self, data: dict) -> float:
+        return float(data["sellingMode"]["price"]["amount"])
+
+    def get_availability(self, data: dict) -> bool:
+        return data["stock"]["available"] > 0
+
+    def get_name(self, data: dict) -> str:
+        return data["name"]
